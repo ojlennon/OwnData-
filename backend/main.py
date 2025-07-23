@@ -1,17 +1,23 @@
 from fastapi import FastAPI
 import sqlite3
 from qdrant_client import QdrantClient
+from QdrantManager import QdrantManager
 
 app = FastAPI()
 
+manager = QdrantManager()
+
 @app.get("/")
 def read_root():
-    return {"Hello": "World"}
+    return {"message": "Nothing to see here, move along!"}
 
 def fetch_api_key(api_key: str):
     conn = sqlite3.connect("database.db")
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM keys WHERE api_key = ?", (api_key,))
+    if cursor.rowcount == 0:
+        conn.close()
+        return None
     result = cursor.fetchone()
     conn.close()
     return result
@@ -30,17 +36,20 @@ def fetch_permission_string(api_key: str):
         return result[0].split(",")
     return []
 
+def fetch_field_value(api_key: str, field_name: str):
 
-@app.get("/field/{api_key}/{field_name}")
-def read_field(api_key: str, field_name: str):
-    # conn = sqlite3.connect("database.db")
-    # cursor = conn.cursor()
-    # cursor.execute("SELECT value FROM keys WHERE api_key = ?", (api_key,))
-    # if cursor.rowcount == 0:
-    #     conn.close()
-    #     return {"error": "API key not found"}, 404
-    # result = cursor.fetchone()
-    # permission_string = result["permission_string"].split(",")
+
+
+@app.get("/field/{api_key}/{field_names}")
+def read_field(api_key: str, field_names: list[str]):
+    conn = sqlite3.connect("database.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT permission_string FROM keys WHERE api_key = ?", (api_key,))
+    if cursor.rowcount == 0:
+        conn.close()
+        return {"error": "API key not found"}, 404
+    result = cursor.fetchone()
+    permission_string = result["permission_string"].split(",")
     try:
         permission_string = fetch_permission_string(api_key)
     except Exception as e:
